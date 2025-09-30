@@ -1,0 +1,107 @@
+  #include <Arduino.h>
+#include <LiquidCrystal.h>
+
+// Pines LCD
+#define rs 22
+#define en 23
+#define d0 12
+#define d1 13
+#define d2 14
+#define d3 27
+#define d4 5
+#define d5 18
+#define d6 19
+#define d7 21
+LiquidCrystal lcd(rs, en, d0, d1, d2, d3, d4, d5, d6, d7);
+
+// Entradas analógicas
+#define PTCM1 34 // ROJO
+#define PTCM2 35 // VERDE
+
+// Pines del LED RGB
+#define LED_ROJO 25
+#define LED_VERDE 26
+#define LED_AZUL 33
+
+// Variables de intensidad
+uint8_t intensidadAzul = 0;
+uint8_t intensidadRojo = 0;
+uint8_t intensidadVerde = 0;
+
+// Canales PWM
+#define CH_ROJO 0
+#define CH_VERDE 1
+#define CH_AZUL 2
+
+void setup() {
+  Serial.begin(9600);
+
+  // Inicializar LCD
+  lcd.begin(16, 2);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Rojo: Verde: Azul:");
+
+  pinMode(PTCM1, INPUT);
+  pinMode(PTCM2, INPUT);
+
+  // Configuración de PWM (frecuencia = 5kHz, resolución = 8 bits)
+  ledcSetup(CH_ROJO, 5000, 8);
+  ledcSetup(CH_VERDE, 5000, 8);
+  ledcSetup(CH_AZUL, 5000, 8);
+
+  // Asociar pines a canales
+  ledcAttachPin(LED_ROJO, CH_ROJO);
+  ledcAttachPin(LED_VERDE, CH_VERDE);
+  ledcAttachPin(LED_AZUL, CH_AZUL);
+}
+
+void loop() {
+  // Lectura de potenciómetros
+  int valorPot1 = analogRead(PTCM1);
+  int valorPot2 = analogRead(PTCM2);
+
+  intensidadRojo = map(valorPot1, 0, 4095, 0, 255);
+  intensidadVerde = map(valorPot2, 0, 4095, 0, 255);
+
+  // Control por UART (+/- para Azul)
+  if (Serial.available() > 0) {
+    char datoRecibido = Serial.read();
+    if (datoRecibido == '+') {
+      if (intensidadAzul < 255) intensidadAzul++;
+    } else if (datoRecibido == '-') {
+      if (intensidadAzul > 0) intensidadAzul--;
+    }
+  }
+
+  // Mostrar en Serial
+  Serial.print("Rojo: ");
+  Serial.print(intensidadRojo);
+  Serial.print(" | Verde: ");
+  Serial.print(intensidadVerde);
+  Serial.print(" | Azul: ");
+  Serial.println(intensidadAzul);
+
+  // Mostrar en LCD
+  lcd.setCursor(0, 1);
+  lcd.print("    "); 
+  lcd.setCursor(0, 1);
+  lcd.print(intensidadRojo);
+
+  lcd.setCursor(6, 1);
+  lcd.print("    "); 
+  lcd.setCursor(6, 1);
+  lcd.print(intensidadVerde);
+
+  lcd.setCursor(12, 1);
+  lcd.print("    "); 
+  lcd.setCursor(12, 1);
+  lcd.print(intensidadAzul);
+
+  // ---- Parte D: PWM ----
+  ledcWrite(CH_ROJO, intensidadRojo);
+  ledcWrite(CH_VERDE, intensidadVerde);
+  ledcWrite(CH_AZUL, intensidadAzul);
+
+  delay(100);
+}
